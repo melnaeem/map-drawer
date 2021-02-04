@@ -1,35 +1,32 @@
-import React, { FormEvent, useState } from 'react'
+import React, { FormEvent, useCallback, useState } from 'react'
+
 import { ColorResult, SketchPicker } from 'react-color'
-import styled from 'styled-components'
-import { ZoneData } from '../../App'
+
 import {
   ColorPreview,
   mainColor,
   StyledButton,
   StyledForm,
-} from '../shared/style'
-
-const LabelWithValueWrapper = styled.div`
-  display: flex;
-
-  label {
-    margin-inline-end: 10px;
-  }
-`
+} from '../../../common/style'
+import { ZoneDataType } from '../../../common/types'
+import { LabelWithValueWrapper } from './style'
 
 const ZoneForm = ({
   onSubmit,
   zoneDefaulData,
 }: {
-  onSubmit: (zoneData: ZoneData) => void
-  zoneDefaulData?: ZoneData
+  onSubmit: (zoneData: ZoneDataType) => void
+  zoneDefaulData?: ZoneDataType
 }) => {
   const [color, setColor] = useState<string>(zoneDefaulData?.color || '#000')
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    onSubmit({ label: (e.target as any).label.value, color })
-  }
+  const handleSubmit = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault()
+      onSubmit({ label: (e.target as any).label.value, color })
+    },
+    [color, onSubmit]
+  )
 
   return (
     <StyledForm minWidth={400} onSubmit={handleSubmit}>
