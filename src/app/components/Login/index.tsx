@@ -65,7 +65,7 @@ const Login = ({ onLoginSuccess }: { onLoginSuccess: Function }) => {
           Submit
         </StyledButton>
 
-        <div className="login-form__error-message"> {error}</div>
+        <div className="login-form__error-message">{error && `*${error}*`}</div>
       </StyledForm>
     </LoginWrapper>
   )

@@ -11,59 +11,22 @@ import { Zone, ZoneBeingCreated, ZoneDataType } from '../../../common/types'
 import * as zoneValidationUtils from '../../utils/zoneValidation'
 import * as mapDrawUtils from '../../utils/mapDraw'
 import * as zoneTransformUtils from '../../utils/zoneTransform'
-import { initMapAndMapDraw } from '../../utils/initMap'
 
 import ZoneForm from '../ZoneForm'
 import ZoneData from '../ZoneData'
 import Modal from '../Modal'
 import ValidationMessage from '../ValidationMessage'
 
-import Api from '../../../common/API'
-
 import { drawModeName } from '../../constants/mapConfigs'
+import * as mapApi from '../../../common/API/mapAPI'
+import { initMapAndMapDraw } from '../../utils/initMap'
 
 mapboxgl.accessToken =
   'pk.eyJ1IjoibWVsbmFlZW0iLCJhIjoiY2traXRzc3l0MXNqMDJvcXUyanR4dnJldSJ9.ZYKXE2cEUfzRABp-vQKFlA'
 let draw: MapboxDraw
 let map: Map
 
-const fetchZones = async () => {
-  try {
-    const response = await Api.get('/zones')
-    return response
-  } catch (error) {
-    throw error
-  }
-}
-
-const createZone = async (zone: Zone) => {
-  try {
-    const response = await Api.post('/zones', zone)
-    return response
-  } catch (error) {
-    throw error
-  }
-}
-
-const updateZone = async (zone: Zone) => {
-  try {
-    const response = await Api.put(`/zones/${zone._id}`, zone)
-    return response
-  } catch (error) {
-    throw error
-  }
-}
-
-const deleteZone = async (zoneId: string) => {
-  try {
-    const response = await Api.delete(`/zones/${zoneId}`)
-    return response
-  } catch (error) {
-    throw error
-  }
-}
-
-const fetchAndRenderZones = async (
+export const fetchAndRenderZones = async (
   mapContainer: React.RefObject<HTMLDivElement>,
   setZones: (zones: Zone[]) => void
 ) => {
@@ -71,7 +34,7 @@ const fetchAndRenderZones = async (
   map = mapAndDraw.map
   draw = mapAndDraw.draw
 
-  const response = await fetchZones()
+  const response = await mapApi.fetchZones()
 
   map.on('load', () => {
     const zonesWithFeatureId = mapDrawUtils.drawZonesLayers(
@@ -108,12 +71,16 @@ const MapDrawer = () => {
     setIsEditing(false)
   }
 
+  const clearSelectedZoneIndex = () => {
+    setSelectedZoneIndex(-1)
+  }
+
   useEffect(() => {
     fetchAndRenderZones(mapContainer, setZones)
   }, [])
 
   useEffect(() => {
-    setSelectedZoneIndex(-1)
+    clearSelectedZoneIndex()
   }, [zones.length])
 
   const handleCreateZone = async ({ label, color }: ZoneDataType) => {
@@ -126,7 +93,7 @@ const MapDrawer = () => {
       points: zoneTransformUtils.mapCoordinatesToPoints([...coordinates[0]]),
     }
 
-    await createZone(newZone)
+    await mapApi.createZone(newZone)
 
     fetchAndRenderZones(mapContainer, setZones)
   }
@@ -146,7 +113,7 @@ const MapDrawer = () => {
       coordinates: zoneTransformUtils.mapPointsToCoordinates(selectedZone),
     })
 
-    updateZone({
+    mapApi.updateZone({
       label,
       color,
       points: selectedZone.points,
@@ -166,7 +133,7 @@ const MapDrawer = () => {
         newCoordinates[0]
       )
 
-      updateZone({
+      mapApi.updateZone({
         label: zonesClone[zoneIndex].label,
         color: zonesClone[zoneIndex].color,
         points: zonesClone[zoneIndex].points,
@@ -184,7 +151,7 @@ const MapDrawer = () => {
       const zonesNewValue = zones.filter((zone) => zone.featureId !== featureId)
 
       if (deletedZone && deletedZone._id) {
-        deleteZone(deletedZone._id)
+        mapApi.deleteZone(deletedZone._id)
       }
 
       setZones(zonesNewValue)
@@ -281,7 +248,7 @@ const MapDrawer = () => {
 
     const handleSelectFeature = (e: { features: Feature[] }) => {
       if (!e.features[0]) {
-        setSelectedZoneIndex(-1)
+        clearSelectedZoneIndex()
         return
       }
 
@@ -342,7 +309,6 @@ const MapDrawer = () => {
   return (
     <MapWrapper>
       <div className="mapContainer" ref={mapContainer} />
-
       {selectedZoneIndex > -1 && zones[selectedZoneIndex] && (
         <ZoneData
           data={{
