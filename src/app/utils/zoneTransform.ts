@@ -22,6 +22,7 @@ export const mapFeaturesToZones = (features: any[]) =>
       color: meta.color,
       points: mapCoordinatesToPoints(feature.geometry.coordinates[0]),
       featureId: feature.id,
+      _id: meta.id,
     })
   )
 
@@ -39,5 +40,6 @@ export const mapZoneToFeatureWithMeta = (zones: Zone[]) =>
     meta: {
       label: zone.label,
       color: zone.color,
+      id: zone._id,
     },
   }))

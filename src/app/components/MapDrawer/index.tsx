@@ -11,48 +11,78 @@ import { Zone, ZoneBeingCreated, ZoneDataType } from '../../../common/types'
 import * as zoneValidationUtils from '../../utils/zoneValidation'
 import * as mapDrawUtils from '../../utils/mapDraw'
 import * as zoneTransformUtils from '../../utils/zoneTransform'
-import {  initMapAndMapDraw } from '../../utils/initMap'
+import { initMapAndMapDraw } from '../../utils/initMap'
 
 import ZoneForm from '../ZoneForm'
 import ZoneData from '../ZoneData'
 import Modal from '../Modal'
 import ValidationMessage from '../ValidationMessage'
 
-import { drawModeName } from '../../constants/mapConfigs'
+import Api from '../../../common/API'
 
+import { drawModeName } from '../../constants/mapConfigs'
 
 mapboxgl.accessToken =
   'pk.eyJ1IjoibWVsbmFlZW0iLCJhIjoiY2traXRzc3l0MXNqMDJvcXUyanR4dnJldSJ9.ZYKXE2cEUfzRABp-vQKFlA'
 let draw: MapboxDraw
 let map: Map
 
-const zonesSavedValues = [
-  {
-    color: '#4BD80D',
-    label: 'The green zone',
-    points: [
-      { lng: '31.29356788952535', lat: '30.0545901854577' },
-      { lng: '31.280607455565644', lat: '30.056598840290533' },
-      { lng: '31.27052234966979', lat: '30.04526959019087' },
-      { lng: '31.26496481259113', lat: '30.039010070583316' },
-      { lng: '31.266960376097984', lat: '30.03170984783172' },
-      { lng: '31.273826831175825', lat: '30.04032813266413' },
-      { lng: '31.281637423827277', lat: '30.047013637190176' },
-      { lng: '31.29356788952535', lat: '30.0545901854577' },
-    ],
-  },
-  {
-    color: '#0D31E9',
-    label: 'The blue area',
-    points: [
-      { lng: '31.16374314644071', lat: '30.032732416559284' },
-      { lng: '31.163914807818543', lat: '30.026490216893833' },
-      { lng: '31.186230786821994', lat: '30.023220707126313' },
-      { lng: '31.168978818437836', lat: '30.037413678307985' },
-      { lng: '31.16374314644071', lat: '30.032732416559284' },
-    ],
-  },
-]
+const fetchZones = async () => {
+  try {
+    const response = await Api.get('/zones')
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+const createZone = async (zone: Zone) => {
+  try {
+    const response = await Api.post('/zones', zone)
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+const updateZone = async (zone: Zone) => {
+  try {
+    const response = await Api.put(`/zones/${zone._id}`, zone)
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+const deleteZone = async (zoneId: string) => {
+  try {
+    const response = await Api.delete(`/zones/${zoneId}`)
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+const fetchAndRenderZones = async (
+  mapContainer: React.RefObject<HTMLDivElement>,
+  setZones: (zones: Zone[]) => void
+) => {
+  const mapAndDraw = initMapAndMapDraw(map, mapContainer, draw)
+  map = mapAndDraw.map
+  draw = mapAndDraw.draw
+
+  const response = await fetchZones()
+
+  map.on('load', () => {
+    const zonesWithFeatureId = mapDrawUtils.drawZonesLayers(
+      map,
+      draw,
+      response.data
+    )
+
+    setZones(zonesWithFeatureId)
+  })
+}
 
 const MapDrawer = () => {
   const mapContainer = useRef<HTMLDivElement>(null)
@@ -79,43 +109,29 @@ const MapDrawer = () => {
   }
 
   useEffect(() => {
-    const mapAndDraw = initMapAndMapDraw(map, mapContainer, draw)
-    map = mapAndDraw.map
-    draw = mapAndDraw.draw
-
-    map.on('load', () => {
-      const zonesWithFeatureId = mapDrawUtils.drawZonesLayers(
-        map,
-        draw,
-        zonesSavedValues
-      )
-      setZones(zonesWithFeatureId)
-    })
+    fetchAndRenderZones(mapContainer, setZones)
   }, [])
 
-  const handleCreateZone = ({ label, color }: ZoneDataType) => {
+  useEffect(() => {
+    setSelectedZoneIndex(-1)
+  }, [zones.length])
+
+  const handleCreateZone = async ({ label, color }: ZoneDataType) => {
     clearCreatingZone()
 
     const coordinates = creatingZone?.coordinates as Position[][]
-    const featureId = creatingZone?.featureId as string
+    const newZone = {
+      label: label,
+      color: color,
+      points: zoneTransformUtils.mapCoordinatesToPoints([...coordinates[0]]),
+    }
 
-    mapDrawUtils.drawZoneLayer(map, coordinates, featureId, {
-      label,
-      color,
-    })
+    await createZone(newZone)
 
-    setZones([
-      ...zones,
-      {
-        label: label,
-        color: color,
-        points: zoneTransformUtils.mapCoordinatesToPoints([...coordinates[0]]),
-        featureId,
-      },
-    ])
+    fetchAndRenderZones(mapContainer, setZones)
   }
 
-  const handleZoneDataSubmit = ({ label, color }: ZoneDataType) => {
+  const handleZoneDataUpdate = ({ label, color }: ZoneDataType) => {
     const zonesClone = [...zones]
     const selectedZone = zonesClone[selectedZoneIndex]
     const featureId = '' + selectedZone.featureId
@@ -129,17 +145,15 @@ const MapDrawer = () => {
       featureId,
       coordinates: zoneTransformUtils.mapPointsToCoordinates(selectedZone),
     })
+
+    updateZone({
+      label,
+      color,
+      points: selectedZone.points,
+      _id: selectedZone._id,
+    })
     endUpdatingZone()
   }
-
-  const handleZoneDelete = useCallback(
-    (featureId: string) => {
-      const zonesNewValue = zones.filter((zone) => zone.featureId !== featureId)
-      setZones(zonesNewValue)
-    },
-
-    [zones]
-  )
 
   const handleZoneCoordinatesUpdate = useCallback(
     (newCoordinates: Position[][], featureId: string) => {
@@ -148,9 +162,34 @@ const MapDrawer = () => {
         (zone) => zone.featureId === featureId
       )
 
-      zonesClone[zoneIndex].points = zoneTransformUtils.mapCoordinatesToPoints(newCoordinates[0])
+      zonesClone[zoneIndex].points = zoneTransformUtils.mapCoordinatesToPoints(
+        newCoordinates[0]
+      )
+
+      updateZone({
+        label: zonesClone[zoneIndex].label,
+        color: zonesClone[zoneIndex].color,
+        points: zonesClone[zoneIndex].points,
+        _id: zonesClone[zoneIndex]._id,
+      })
+
       setZones(zonesClone)
     },
+    [zones]
+  )
+
+  const handleZoneDelete = useCallback(
+    (featureId: string) => {
+      const deletedZone = zones.find((zone) => zone.featureId === featureId)
+      const zonesNewValue = zones.filter((zone) => zone.featureId !== featureId)
+
+      if (deletedZone && deletedZone._id) {
+        deleteZone(deletedZone._id)
+      }
+
+      setZones(zonesNewValue)
+    },
+
     [zones]
   )
 
@@ -210,7 +249,9 @@ const MapDrawer = () => {
           ),
         }
 
-        const zoneCoordinates = zoneTransformUtils.mapPointsToCoordinates(featureZone)
+        const zoneCoordinates = zoneTransformUtils.mapPointsToCoordinates(
+          featureZone
+        )
         currentFeature.geometry.coordinates = zoneCoordinates
 
         mapDrawUtils.redrawZoneFeature(draw, currentFeature)
@@ -267,10 +308,6 @@ const MapDrawer = () => {
     }
   }, [handleZoneCoordinatesUpdate, handleZoneDelete, zones])
 
-  useEffect(() => {
-    setSelectedZoneIndex(-1)
-  }, [zones.length])
-
   const renderCurrentModal = () => {
     if (validationessage) {
       return (
@@ -294,7 +331,7 @@ const MapDrawer = () => {
       return (
         <Modal isOpen={!!isEditingZone} closeModal={endUpdatingZone}>
           <ZoneForm
-            onSubmit={handleZoneDataSubmit}
+            onSubmit={handleZoneDataUpdate}
             zoneDefaulData={{ label, color }}
           />
         </Modal>

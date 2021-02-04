@@ -20,6 +20,7 @@ export const StyledButton = styled.button<any>`
 export const StyledForm = styled.form<any>`
   width: 100%;
   ${(props) => props.minWidth && `min-width: ${props.minWidth}px`};
+  ${(props) => props.maxWidth && `max-width: ${props.maxWidth}px`};
 
   label {
     font-size: 14px;
@@ -35,6 +36,8 @@ export const StyledForm = styled.form<any>`
     font-size: 15px;
     width: 100%;
     margin-bottom: 15px;
+    border: 1px solid #989898;
+    border-radius: 3px;
   }
 `
 export const ColorPreview = styled.div<any>`

@@ -12,6 +12,7 @@ export interface ZoneDataType {
 
 export interface Zone extends ZoneDataType {
   points: ZonePoint[]
+  _id?: string // id is not required as the point maybe not created yet
   featureId?: string
 }
 
